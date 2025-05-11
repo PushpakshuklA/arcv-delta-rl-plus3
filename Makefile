@@ -1,8 +1,14 @@
-CC      = arm-none-eabi-gcc
-CFLAGS  = -mcpu=cortex-m4 -mthumb -O2 -ffast-math -fno-exceptions -Wall
-INCS    = -Isrc
+# ----------------------------------------------------------------------------
+# ARC-V Δ-RL Plus-3 Makefile
+# Automatically emits STM32F4xx.ld if missing, then builds ELF → BIN.
+# ----------------------------------------------------------------------------
 
-SRCS = \
+CC        := arm-none-eabi-gcc
+OBJCOPY   := arm-none-eabi-objcopy
+CFLAGS    := -mcpu=cortex-m4 -mthumb -O2 -ffast-math -fno-exceptions -Wall
+INCS      := -Isrc
+
+SRCS := \
   src/hal.c \
   src/fixed_point.c \
   src/vec2.c \
@@ -14,17 +20,68 @@ SRCS = \
   src/pj_fhpc.c \
   src/main.c
 
-OBJS = $(SRCS:.c=.o)
-TARGET = arcv_delta_rl_plus3.bin
-LD_SCRIPT = STM32F4xx.ld
+OBJS      := $(SRCS:.c=.o)
+LD_SCRIPT := STM32F4xx.ld
 
-all: $(TARGET)
+TARGET_ELF := arcv_delta_rl_plus3.elf
+TARGET_BIN := arcv_delta_rl_plus3.bin
 
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -T$(LD_SCRIPT) -Wl,--gc-sections -o $@ $^
+# Default: build the final binary (which depends on the ELF)
+all: $(TARGET_BIN)
 
+# Link into ELF (auto-generate linker script if needed)
+$(TARGET_ELF): $(OBJS) $(LD_SCRIPT)
+	$(CC) $(CFLAGS) -T$(LD_SCRIPT) -Wl,--gc-sections -o $@ $(OBJS)
+
+# Raw binary from ELF
+$(TARGET_BIN): $(TARGET_ELF)
+	$(OBJCOPY) -O binary $< $@
+
+# Compile each C file
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
+# If STM32F4xx.ld does not exist, generate a minimal one
+$(LD_SCRIPT):
+	@echo "Auto-generating minimal STM32F4xx.ld linker script"
+	@cat > $(LD_SCRIPT) << 'EOF'
+MEMORY
+{
+  FLASH (rx) : ORIGIN = 0x08000000, LENGTH = 1024K
+  RAM   (xrw) : ORIGIN = 0x20000000, LENGTH = 128K
+}
+
+SECTIONS
+{
+  .text :
+  {
+    KEEP(*(.isr_vector))
+    *(.text*)
+    *(.rodata*)
+    _etext = .;
+  } > FLASH
+
+  .data : AT(_etext)
+  {
+    _sdata = .;
+    *(.data*)
+    _edata = .;
+  } > RAM
+
+  .bss :
+  {
+    _sbss = .;
+    *(.bss*)
+    *(COMMON)
+    _ebss = .;
+  } > RAM
+
+  /* Stack top symbol */
+  _estack = ORIGIN(RAM) + LENGTH(RAM);
+  PROVIDE(__StackTop = _estack);
+}
+EOF
+
+# Clean up
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET_ELF) $(TARGET_BIN) $(LD_SCRIPT)
