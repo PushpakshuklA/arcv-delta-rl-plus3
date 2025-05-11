@@ -1,24 +1,19 @@
-# ----------------------------------------------------------------------------
-# ARC-V Δ-RL Plus-3 Makefile
-# Automatically emits STM32F4xx.ld if missing, then builds ELF → BIN.
-# ----------------------------------------------------------------------------
-
 CC        := arm-none-eabi-gcc
 OBJCOPY   := arm-none-eabi-objcopy
 CFLAGS    := -mcpu=cortex-m4 -mthumb -O2 -ffast-math -fno-exceptions -Wall
 INCS      := -Isrc
 
 SRCS := \
-  src/hal.c \
-  src/fixed_point.c \
-  src/vec2.c \
-  src/vec4.c \
-  src/ia_fht.c \
-  src/macro_actions.c \
-  src/rl_policy.c \
-  src/vcqbf.c \
-  src/pj_fhpc.c \
-  src/main.c
+	src/hal.c \
+	src/fixed_point.c \
+	src/vec2.c \
+	src/vec4.c \
+	src/ia_fht.c \
+	src/macro_actions.c \
+	src/rl_policy.c \
+	src/vcqbf.c \
+	src/pj_fhpc.c \
+	src/main.c
 
 OBJS      := $(SRCS:.c=.o)
 LD_SCRIPT := STM32F4xx.ld
@@ -26,22 +21,17 @@ LD_SCRIPT := STM32F4xx.ld
 TARGET_ELF := arcv_delta_rl_plus3.elf
 TARGET_BIN := arcv_delta_rl_plus3.bin
 
-# Default: build the final binary (which depends on the ELF)
 all: $(TARGET_BIN)
 
-# Link into ELF (auto-generate linker script if needed)
 $(TARGET_ELF): $(OBJS) $(LD_SCRIPT)
 	$(CC) $(CFLAGS) -T$(LD_SCRIPT) -Wl,--gc-sections -o $@ $(OBJS)
 
-# Raw binary from ELF
 $(TARGET_BIN): $(TARGET_ELF)
 	$(OBJCOPY) -O binary $< $@
 
-# Compile each C file
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
-# If STM32F4xx.ld does not exist, generate a minimal one
 $(LD_SCRIPT):
 	@echo "Auto-generating minimal STM32F4xx.ld linker script"
 	@cat > $(LD_SCRIPT) << 'EOF'
@@ -76,12 +66,10 @@ SECTIONS
     _ebss = .;
   } > RAM
 
-  /* Stack top symbol */
   _estack = ORIGIN(RAM) + LENGTH(RAM);
   PROVIDE(__StackTop = _estack);
 }
 EOF
 
-# Clean up
 clean:
 	rm -f $(OBJS) $(TARGET_ELF) $(TARGET_BIN) $(LD_SCRIPT)
