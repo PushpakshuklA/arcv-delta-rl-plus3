@@ -1,8 +1,4 @@
 
----
-
-### 19. `data/gen_data.py`
-```python
 import numpy as np
 import pandas as pd
 
